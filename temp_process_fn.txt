@@ -1,0 +1,60 @@
+    private async processSingleArticle(url: string, videoDir: string): Promise<{ saved: boolean; alreadyExists: boolean }> {
+        try {
+            const normalizedUrl = canonicalizeUrl(url);
+            this.logger.info('PROCESSING_ARTICLE', { url: normalizedUrl });
+
+            const article = await this.extractArticle(normalizedUrl);
+            if (!article) {
+                this.logger.warn('ARTICLE_EXTRACT_FAILED', { url: normalizedUrl });
+                return { saved: false, alreadyExists: false };
+            }
+
+            const newsId = await MysqlStore.saveCrawledNews({
+                source: article.source,
+                source_url: article.source_url,
+                category: article.category,
+                title: article.title,
+                description: article.description,
+                image_url: article.image_url,
+                video_url: article.video_url,
+                author: article.author,
+            });
+
+            if (!newsId) {
+                this.logger.info('ARTICLE_ALREADY_EXISTS', { url: article.source_url });
+                return { saved: false, alreadyExists: true };
+            }
+
+            console.log(`  ✅ [${article.source}][${article.category}] ${article.title}`);
+
+            // Tải video nếu có
+            if (article.video_url) {
+                // Kiểm tra file local đã tồn tại chưa
+                const possiblePath = path.join(videoDir, `news_${newsId}.mp4`);
+                if (fs.existsSync(possiblePath)) {
+                    console.log(`  - File video đã tồn tại local: ${possiblePath}`);
+                    await MysqlStore.saveLocalPath(newsId, possiblePath);
+                    return { saved: true, alreadyExists: false };
+                }
+
+                const localPath = await this.downloadVideo(newsId, article.video_url, videoDir);
+                if (localPath) {
+                    await MysqlStore.saveLocalPath(newsId, localPath);
+                    console.log(`  🎥 Video đã tải: ${localPath}`);
+                } else {
+                    await MysqlStore.markVideoFailed(newsId);
+                    console.log(`  ⚠️ Video tải thất bại`);
+                }
+            } else {
+                console.log(`  ℹ️ Bài viết không có video`);
+            }
+
+            return { saved: true, alreadyExists: false };
+        } catch (e: any) {
+            this.logger.error('PROCESS_ARTICLE_ERROR', { url, err: e.message });
+            return { saved: false, alreadyExists: false };
+        }
+    }
+
+    // ─── Quét trang chủ tờ báo ───────────────────────────────────────────────
+
