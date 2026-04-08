@@ -20,79 +20,7 @@ export class MysqlStore {
         return this.pool;
     }
 
-    static async initCrawlTables() {
-        try {
-            // Kết nối tạm (không dùng DB) để tạo DB nếu chưa có
-            const tempConn = await mysql.createConnection({
-                host: ENV.DB_HOST,
-                user: ENV.DB_USER,
-                password: ENV.DB_PASS,
-            });
-            await tempConn.execute(`CREATE DATABASE IF NOT EXISTS \`${ENV.DB_NAME}\``);
-            await tempConn.end();
 
-            const pool = this.getPool();
-            await pool.execute(`
-                CREATE TABLE IF NOT EXISTS crawled_news (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    source VARCHAR(50),
-                    source_url VARCHAR(255) UNIQUE,
-                    category VARCHAR(100),
-                    title TEXT,
-                    description TEXT,
-                    image_url TEXT,
-                    video_url TEXT,
-                    local_path VARCHAR(255),
-                    downloaded TINYINT DEFAULT 0,
-                    author VARCHAR(100),
-                    post_count INT DEFAULT 0,
-                    max_posts INT DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-
-            const ensureColumn = async (columnName: string, sqlType: string) => {
-                const [rows] = await pool.execute<mysql.RowDataPacket[]>(
-                    `SELECT COLUMN_NAME
-                     FROM INFORMATION_SCHEMA.COLUMNS
-                     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'crawled_news' AND COLUMN_NAME = ?`,
-                    [ENV.DB_NAME, columnName]
-                );
-                if (!rows.length) {
-                    await pool.execute(`ALTER TABLE crawled_news ADD COLUMN ${columnName} ${sqlType}`);
-                }
-            };
-
-            const dropColumn = async (columnName: string) => {
-                const [rows] = await pool.execute<mysql.RowDataPacket[]>(
-                    `SELECT COLUMN_NAME
-                     FROM INFORMATION_SCHEMA.COLUMNS
-                     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'crawled_news' AND COLUMN_NAME = ?`,
-                    [ENV.DB_NAME, columnName]
-                );
-                if (rows.length) {
-                    await pool.execute(`ALTER TABLE crawled_news DROP COLUMN ${columnName}`);
-                    console.info(`[DB] Dropped column crawled_news.${columnName}`);
-                }
-            };
-
-            await ensureColumn('description', 'TEXT');
-            await ensureColumn('category_id', 'INT DEFAULT NULL');
-            await pool.execute(`
-                CREATE TABLE IF NOT EXISTS news_categories (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    source VARCHAR(50) NOT NULL COMMENT 'Nguồn tin: vnexpress, dantri, tuoitre, thanhnien, zingnews',
-                    name VARCHAR(100) NOT NULL COMMENT 'Tên category hiển thị',
-                    url VARCHAR(255) NOT NULL UNIQUE COMMENT 'URL trang category',
-                    is_active TINYINT DEFAULT 1 COMMENT '1=đang dùng, 0=tắt',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-        } catch (e: any) {
-            console.error("[DB] initCrawlTables failed:", e.message);
-            throw e;
-        }
-    }
 
     static async saveCrawledNews(data: {
         source: string;

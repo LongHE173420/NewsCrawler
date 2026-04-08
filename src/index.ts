@@ -14,7 +14,6 @@ async function main() {
 
         const logger = Log.getLogger('Bootstrap');
 
-        await MysqlStore.initCrawlTables();
         logger.info('BOOTSTRAP_READY', { dbName: ENV.DB_NAME, logFile: filePath });
 
         const master = new MasterWorker();

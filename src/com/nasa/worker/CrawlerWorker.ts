@@ -71,7 +71,6 @@ export class CrawlerWorker {
 
     public async start(): Promise<CrawlSummary | null> {
         try {
-            await MysqlStore.initCrawlTables();
 
             if (!ENV.CRAWL_NEWS_ENABLED) {
                 this.logger.warn('CRAWL_DISABLED_BY_CONFIG');
