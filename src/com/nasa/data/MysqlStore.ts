@@ -71,11 +71,23 @@ export class MysqlStore {
         }
     }
 
+    static async markDownloaded(newsId: number) {
+        const pool = this.getPool();
+        try {
+            await pool.execute(
+                `UPDATE crawled_news SET downloaded = 1 WHERE id = ?`,
+                [newsId]
+            );
+        } catch (e: any) {
+            console.error("[DB] markDownloaded failed:", e.message);
+        }
+    }
+
     static async markVideoFailed(newsId: number) {
         const pool = this.getPool();
         try {
             await pool.execute(
-                `UPDATE crawled_news SET downloaded = 2 WHERE id = ?`,
+                `UPDATE crawled_news SET downloaded = 0 WHERE id = ?`,
                 [newsId]
             );
         } catch (e: any) {
@@ -144,7 +156,7 @@ export class MysqlStore {
                     cleaned++;
                 }
                 await pool.execute(
-                    `UPDATE crawled_news SET local_path = NULL, downloaded = 0 WHERE id = ?`,
+                    `UPDATE crawled_news SET local_path = NULL WHERE id = ?`,
                     [row.id]
                 );
             }

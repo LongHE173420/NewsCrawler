@@ -113,6 +113,7 @@ export class NewsCrawlService {
                 }
             }
 
+            await MysqlStore.markDownloaded(newsId);
             return { saved: true, alreadyExists: false, extractFailed: false, hadVideo: false, videoDownloaded: false, videoFailed: false };
         } catch (e: any) {
             this.logger.error('PROCESS_ARTICLE_ERROR', { url, err: e.message });
